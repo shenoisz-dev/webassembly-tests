@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>WASM + HEAP32 Array Sum</title>
+</head>
+<body>
+  <h1>WASM sum_array</h1>
+  <p id="output"></p>
+
+  <script>
+
+    let HEAP32;
+    let HEAP8;
+
+    const imports = {
+      env: { 
+        memory: new WebAssembly.Memory({ initial: 1 }),
+        print_int: (value) => console.log("Int from WASM:", value),
+        print_str: (ptr, length) => {
+          let str = "";
+          while (HEAP8[ptr] !== 0) {
+            str += String.fromCharCode(HEAP8[ptr++]);
+          }
+          console.log("Streing from WASM:", str);
+        },
+        abort: () => {
+          console.log("Abort");
+        }
+      }
+    };
+
+    fetch("sum_array.wasm")
+    .then(response => response.arrayBuffer())
+    .then(bytes => WebAssembly.instantiate(bytes, imports))
+    .then(({ instance }) => {
+      HEAP8 = new Uint8Array(instance.exports.memory.buffer);
+      HEAP32 = new Uint32Array(instance.exports.memory.buffer);
+
+
+      const input = new Uint32Array([10, 20, 30, 40]);
+      const ptr = 0;
+
+      HEAP32.set(input, ptr); // write to wasm memory
+
+      const state = instance.exports.state;
+      console.log(state);
+      console.log(HEAP8.slice(state, state + 1)[0]);
+
+      const result = instance.exports.sum_array(ptr, input.length);
+      console.log("Sum:", result);
+      document.getElementById("output").textContent = "Sum: " + result;
+      
+      const str = instance.exports.get_str();
+      console.log("get_str:", str);
+      //const str_data = new Uint8Array(instance.exports.memory.buffer, str, "Hello from C++!".length);
+      const str_data = HEAP8.slice(str, str + "Hello from C++!".length);
+      console.log("str_data:", str_data);
+      const tex_str = new TextDecoder().decode(str_data);
+      console.log("get_str:", tex_str);
+      console.log(HEAP8);
+      console.log('');
+      console.log(HEAP32);
+
+      console.log(`HEAP32: ${HEAP32.length}, HEAP8: ${HEAP8.length}`);
+
+      console.log(HEAP8.slice(state, state + 1)[0]);
+
+      instance.exports.print_test();
+
+    });
+
+  </script>
+</body>
+</html>
